@@ -171,9 +171,9 @@ def determine_psp_value(skoleliste: str, row: pd.Series) -> str:
     """Determine PSP value based on school list."""
     if 'langagerskolen' in skoleliste:
         return "XG-5240220808-00004"
-    elif 'stensagerskolen' in skoleliste:
+    if 'stensagerskolen' in skoleliste:
         return "XG-5240220808-00005"
-    elif not pd.isnull(row['skriv_dit_barns_skole_eller_dagtilbud']):
+    if not pd.isnull(row['skriv_dit_barns_skole_eller_dagtilbud']):
         return "XG-5240220835-00004"
     return "XG-5240220808-00003"
 

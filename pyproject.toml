@@ -19,8 +19,8 @@ dependencies = [
     "OpenOrchestrator == 1.*",
     "Pillow == 9.5.0",
     "mbu_dev_shared_components == 0.0.49",
-    "office365",
-    "pandas"
+    "pandas",
+    "office365-rest-python-client"
 ]
 
 [project.optional-dependencies]
@@ -28,5 +28,6 @@ dev = [
   "pylint",
   "flake8",
   "mbu_dev_shared_components == 0.0.49",
+  "office365-rest-python-client",
   "pandas"
 ]
