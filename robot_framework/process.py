@@ -2,8 +2,9 @@
 import os
 import glob
 import json
+import ast
 import uuid
-import datetime
+from datetime import datetime
 import pandas as pd
 import sqlalchemy
 from office365.runtime.auth.user_credential import UserCredential
@@ -13,8 +14,6 @@ from mbu_dev_shared_components.utils.fernet_encryptor import Encryptor
 from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
 
 # Configuration
-USERNAME = os.getenv("myLogin")
-PASSWORD = os.getenv("mySecret")
 SHAREPOINT_SITE_URL = "https://aarhuskommune.sharepoint.com/teams/MBU-RPA-Egenbefordring"
 DOCUMENT_LIBRARY = "Delte dokumenter/General/Til udbetaling"
 
@@ -26,8 +25,12 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     path_arg = process_args['path']
     naeste_agent_arg = process_args['naeste_agent']
 
+    service_konto_credential = orchestrator_connection.get_credentials("SvcRpaMBU002")
+    username = service_konto_credential.username
+    password = service_konto_credential.password
+
     clear_queue(orchestrator_connection)
-    fetch_files(path_arg)
+    fetch_files(username, password, path_arg)
     data_df = load_excel_data(path_arg)
     processed_df = process_data(data_df, naeste_agent_arg)
     approved_df = processed_df[processed_df['is_godkendt']]
@@ -41,12 +44,12 @@ def clear_queue(orchestrator_connection: OrchestratorConnection) -> None:
         orchestrator_connection.delete_queue_element(element.id)
 
 
-def fetch_files(download_path: str) -> None:
+def fetch_files(username, password, download_path: str) -> None:
     """Download Excel files from SharePoint to the specified path."""
     if not os.path.exists(download_path):
         os.makedirs(download_path)
 
-    ctx = ClientContext(SHAREPOINT_SITE_URL).with_credentials(UserCredential(USERNAME, PASSWORD))
+    ctx = ClientContext(SHAREPOINT_SITE_URL).with_credentials(UserCredential(username, password))
     target_folder_url = f"/teams/MBU-RPA-Egenbefordring/{DOCUMENT_LIBRARY}"
     target_folder = ctx.web.get_folder_by_server_relative_url(target_folder_url)
     files = target_folder.files
@@ -92,17 +95,52 @@ def extract_url_from_attachments(attachments_str: str) -> str:
     return pd.NA
 
 
+def extract_months_and_year(test_str):
+    MONTH_MAP = {
+        'January': 'Januar',
+        'February': 'Februar',
+        'March': 'Marts',
+        'April': 'April',
+        'May': 'Maj',
+        'June': 'Juni',
+        'July': 'Juli',
+        'August': 'August',
+        'September': 'September',
+        'October': 'Oktober',
+        'November': 'November',
+        'December': 'December'
+    }
+    data = ast.literal_eval(test_str)
+    months = set()
+    year = None
+    
+    for entry in data:
+        if isinstance(entry, dict) and 'dato' in entry:
+            date_str = entry['dato']
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            month_name = date_obj.strftime('%B')
+            months.add(MONTH_MAP.get(month_name, month_name))
+            year = date_obj.year
+    
+    sorted_months = sorted(months, key=lambda x: list(MONTH_MAP.values()).index(x))
+    
+    month_str = '/'.join(sorted_months)
+    result = f"{month_str} {year}"
+    
+    return result
+
+
 def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
     """Process the data and return a DataFrame with the required format."""
-    month_year = datetime.datetime.now().strftime('%B %Y')
     encryptor = Encryptor()
     processed_data = []
 
     for _, row in df.iterrows():
-        cpr_nr = str(row.get('cpr_nr_paaanden', row.get('cpr_nr', '')))
+        month_year = extract_months_and_year(row['test'])
+        cpr_nr = str(row['cpr_nr_paaanden']) if not pd.isnull(row['cpr_nr_paaanden']) else str(row['cpr_nr'])
         attachments_str = str(row.get('attachments', ''))
         url = extract_url_from_attachments(attachments_str)
-        skoleliste = str(row.get('skoleliste', '')).lower()
+        skoleliste = str(row['skoleliste']).lower() if not pd.isnull(row['skoleliste']) else ''
 
         psp_value = determine_psp_value(skoleliste, row)
 
@@ -110,15 +148,16 @@ def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
 
         new_row = {
             'cpr_encrypted': encrypted_cpr,
-            'beloeb': row.get('aendret_beloeb_i_alt', row.get('beloeb_i_alt')),
+            'beloeb': row['aendret_beloeb_i_alt'] if not pd.isnull(row['aendret_beloeb_i_alt']) else row['beloeb_i_alt'],
+            'reference': month_year,
             'arts_konto': '40430002',
             'psp': psp_value,
             'posteringstekst': f"Egenbefordring {month_year}",
             'naeste_agent': naeste_agent,
-            'attachments': url,
+            'attachment': url,
             'uuid': row.get('uuid', pd.NA),
             'godkendt_af': row.get('godkendt_af', pd.NA),
-            'skole': row.get('skriv_dit_barns_skole_eller_dagtilbud', row.get('skoleliste')),
+            'skole': row['skriv_dit_barns_skole_eller_dagtilbud'] if not pd.isnull(row['skriv_dit_barns_skole_eller_dagtilbud']) else row['skoleliste'],
             'is_godkendt': 'x' in str(row.get('godkendt', '')).lower(),
         }
 
@@ -130,10 +169,10 @@ def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
 def determine_psp_value(skoleliste: str, row: pd.Series) -> str:
     """Determine PSP value based on school list."""
     if 'langagerskolen' in skoleliste:
-        return "XG-5240220835-00011"
+        return "XG-5240220808-00004"
     elif 'stensagerskolen' in skoleliste:
-        return "XG-5240220835-00021"
-    elif pd.notna(row.get('skriv_dit_barns_skole_eller_dagtilbud')):
+        return "XG-5240220808-00005"
+    elif not pd.isnull(row['skriv_dit_barns_skole_eller_dagtilbud']):
         return "XG-5240220835-00004"
     return "XG-5240220808-00003"
 
@@ -164,13 +203,3 @@ def upload_to_queue(result_df: pd.DataFrame, orchestrator_connection: Orchestrat
     except (ValueError, TypeError) as e:
         print(f"Error occurred: {e}")
 
-
-if __name__ == "__main__":
-    JSON_ARGS = '{"path": "C:\\\\Users\\\\az77879\\\\OneDrive - Aarhus kommune\\\\RPA\\\\TEMP FILES", "naeste_agent": "AZ53501"}'
-    oc = OrchestratorConnection(
-        "Kørselsgodtgørelse, dev'ing",
-        os.getenv('OpenOrchestratorConnStringTest'),
-        os.getenv('OpenOrchestratorKeyTest'),
-        JSON_ARGS
-    )
-    process(oc)
