@@ -96,7 +96,8 @@ def extract_url_from_attachments(attachments_str: str) -> str:
 
 
 def extract_months_and_year(test_str):
-    MONTH_MAP = {
+    """Extract months and year from the test string."""
+    month_map = {
         'January': 'Januar',
         'February': 'Februar',
         'March': 'Marts',
@@ -113,20 +114,20 @@ def extract_months_and_year(test_str):
     data = ast.literal_eval(test_str)
     months = set()
     year = None
-    
+
     for entry in data:
         if isinstance(entry, dict) and 'dato' in entry:
             date_str = entry['dato']
             date_obj = datetime.strptime(date_str, '%Y-%m-%d')
             month_name = date_obj.strftime('%B')
-            months.add(MONTH_MAP.get(month_name, month_name))
+            months.add(month_map.get(month_name, month_name))
             year = date_obj.year
-    
-    sorted_months = sorted(months, key=lambda x: list(MONTH_MAP.values()).index(x))
-    
+
+    sorted_months = sorted(months, key=lambda x: list(month_map.values()).index(x))
+
     month_str = '/'.join(sorted_months)
     result = f"{month_str} {year}"
-    
+
     return result
 
 
@@ -202,4 +203,3 @@ def upload_to_queue(result_df: pd.DataFrame, orchestrator_connection: Orchestrat
 
     except (ValueError, TypeError) as e:
         print(f"Error occurred: {e}")
-
