@@ -25,7 +25,7 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     path_arg = process_args['path']
     naeste_agent_arg = process_args['naeste_agent']
 
-    service_konto_credential = orchestrator_connection.get_credentials("SvcRpaMBU002")
+    service_konto_credential = orchestrator_connection.get_credential("SvcRpaMBU002")
     username = service_konto_credential.username
     password = service_konto_credential.password
 
