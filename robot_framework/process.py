@@ -147,9 +147,20 @@ def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
 
         encrypted_cpr = encryptor.encrypt(cpr_nr).decode('utf-8')
 
+        # Ensure that the beloeb value is a float
+        beloeb_value = row['aendret_beloeb_i_alt'] if not pd.isnull(row['aendret_beloeb_i_alt']) else row['beloeb_i_alt']
+        if pd.notnull(beloeb_value):
+            beloeb_str = str(beloeb_value).replace(',', '.')
+            try:
+                beloeb_numeric = float(beloeb_str)
+            except ValueError:
+                beloeb_numeric = None
+        else:
+            beloeb_numeric = None
+
         new_row = {
             'cpr_encrypted': encrypted_cpr,
-            'beloeb': row['aendret_beloeb_i_alt'] if not pd.isnull(row['aendret_beloeb_i_alt']) else row['beloeb_i_alt'],
+            'beloeb': beloeb_numeric, 
             'reference': month_year,
             'arts_konto': '40430002',
             'psp': psp_value,
@@ -164,7 +175,11 @@ def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
 
         processed_data.append(new_row)
 
-    return pd.DataFrame(processed_data)
+        df_processed = pd.DataFrame(processed_data)
+
+        df_processed['beloeb'] = df_processed['beloeb'].apply(lambda x: f"{x:,.2f}".replace('.', ',') if x is not None else '')
+
+    return df_processed
 
 
 def determine_psp_value(skoleliste: str, row: pd.Series) -> str:
