@@ -160,7 +160,7 @@ def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
 
         new_row = {
             'cpr_encrypted': encrypted_cpr,
-            'beloeb': beloeb_numeric, 
+            'beloeb': beloeb_numeric,
             'reference': month_year,
             'arts_konto': '40430002',
             'psp': psp_value,
