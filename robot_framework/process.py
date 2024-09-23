@@ -6,6 +6,7 @@ import ast
 import uuid
 from datetime import datetime
 import pandas as pd
+import shutil
 import sqlalchemy
 from office365.runtime.auth.user_credential import UserCredential
 from office365.sharepoint.client_context import ClientContext
@@ -30,9 +31,10 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     password = service_konto_credential.password
 
     clear_queue(orchestrator_connection)
-    fetch_files(username, password, path_arg)
-    data_df = load_excel_data(path_arg)
-    processed_df = process_data(data_df, naeste_agent_arg)
+    delete_all_files_in_path(path_arg)
+    filename = fetch_files(username, password, path_arg)
+    data_df = load_excel_data(path_arg, filename)
+    processed_df = process_data(data_df, naeste_agent_arg, filename)
     approved_df = processed_df[processed_df['is_godkendt']]
     upload_to_queue(approved_df, orchestrator_connection)
 
@@ -42,6 +44,25 @@ def clear_queue(orchestrator_connection: OrchestratorConnection) -> None:
     queue_elements = orchestrator_connection.get_queue_elements("Koerselsgodtgoerelse_egenbefordring")
     for element in queue_elements:
         orchestrator_connection.delete_queue_element(element.id)
+
+
+def delete_all_files_in_path(path):
+    """Delete all files and directories in the given path."""
+    if not os.path.isdir(path):
+        raise ValueError(f"The provided path '{path}' is not a valid directory.")
+
+    for filename in os.listdir(path):
+        file_path = os.path.join(path, filename)
+
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.remove(file_path)
+                print(f"File deleted: {file_path}")
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+                print(f"Directory deleted: {file_path}")
+        except (OSError, shutil.Error) as e:
+            print(f"Failed to delete {file_path}. Reason: {e}")
 
 
 def fetch_files(username, password, download_path: str) -> None:
@@ -58,29 +79,31 @@ def fetch_files(username, password, download_path: str) -> None:
 
     if not files:
         print("No files found in the specified SharePoint folder.")
-        return
+
+    filename = None
 
     for file in files:
         if file.name.endswith('.xlsx'):
+            filename = file.name
             download_path_file = os.path.join(download_path, file.name)
             with open(download_path_file, "wb") as local_file:
                 file_content = File.open_binary(ctx, file.serverRelativeUrl)
                 local_file.write(file_content.content)
             print(f"Downloaded: {file.name} to {download_path_file}")
 
+    return filename
 
-def load_excel_data(dir_path: str) -> pd.DataFrame:
+
+def load_excel_data(dir_path: str, filename) -> pd.DataFrame:
     """Load the first Excel file matching the pattern from the directory."""
     print("Loading Excel data...")
-    excel_files = glob.glob(os.path.join(dir_path, "Egenbe[forfart]*.xlsx"))
+    excel_files = glob.glob(os.path.join(dir_path, filename))
     if not excel_files:
-        raise FileNotFoundError("No Egenbefordring... .xlsx files found in the specified folder.")
+        raise FileNotFoundError("File not found in the specified folder.")
 
     file_to_read = excel_files[0]
     df = pd.read_excel(file_to_read)
     print(f"Data loaded from: {file_to_read}")
-    os.remove(file_to_read)
-    print(f"Deleted: {file_to_read}")
     return df
 
 
@@ -131,7 +154,7 @@ def extract_months_and_year(test_str):
     return result
 
 
-def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
+def process_data(df: pd.DataFrame, naeste_agent: str, filename) -> pd.DataFrame:
     """Process the data and return a DataFrame with the required format."""
     encryptor = Encryptor()
     processed_data = []
@@ -147,20 +170,21 @@ def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
 
         encrypted_cpr = encryptor.encrypt(cpr_nr).decode('utf-8')
 
-        # Ensure that the beloeb value is a float
+        # Ensure that the beloeb value is a string, replace all . with , and keep only the last comma
         beloeb_value = row['aendret_beloeb_i_alt'] if not pd.isnull(row['aendret_beloeb_i_alt']) else row['beloeb_i_alt']
         if pd.notnull(beloeb_value):
-            beloeb_str = str(beloeb_value).replace(',', '.')
-            try:
-                beloeb_numeric = float(beloeb_str)
-            except ValueError:
-                beloeb_numeric = None
-        else:
-            beloeb_numeric = None
+            # Replace all periods with commas
+            beloeb_value = str(beloeb_value).replace('.', ',')
+            # If there are multiple commas, keep only the last one
+            if beloeb_value.count(',') > 1:
+                parts = beloeb_value.split(',')
+                # Join all but the last part without commas, then add the last part with a comma
+                beloeb_value = ''.join(parts[:-1]) + ',' + parts[-1]
 
         new_row = {
+            'filename': filename,
             'cpr_encrypted': encrypted_cpr,
-            'beloeb': beloeb_numeric,
+            'beloeb': beloeb_value,
             'reference': month_year,
             'arts_konto': '40430002',
             'psp': psp_value,
@@ -175,9 +199,7 @@ def process_data(df: pd.DataFrame, naeste_agent: str) -> pd.DataFrame:
 
         processed_data.append(new_row)
 
-        df_processed = pd.DataFrame(processed_data)
-
-        df_processed['beloeb'] = df_processed['beloeb'].apply(lambda x: f"{x:,.2f}".replace('.', ',') if x is not None else '')
+    df_processed = pd.DataFrame(processed_data)
 
     return df_processed
 
@@ -212,9 +234,16 @@ def upload_to_queue(result_df: pd.DataFrame, orchestrator_connection: Orchestrat
             data=queue_data
         )
         print("Data uploaded to queue successfully.")
+        orchestrator_connection.log_trace("Data uploaded to queue.")
 
     except sqlalchemy.exc.IntegrityError as ie:
         print(f"IntegrityError: {ie.orig}")
 
     except (ValueError, TypeError) as e:
         print(f"Error occurred: {e}")
+
+
+if __name__ == "__main__":
+    json_args = '{"path": "C:\\\\Users\\\\az77879\\\\Desktop\\\\Koerselsgodtgoerelse", "naeste_agent": "AZ53501"}'
+    oc = OrchestratorConnection("befordring - uploader - test", os.getenv('OpenOrchestratorConnStringTest'), os.getenv('OpenOrchestratorKeyTest'), json_args)
+    process(oc)
