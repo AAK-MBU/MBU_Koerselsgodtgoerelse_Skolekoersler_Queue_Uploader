@@ -241,9 +241,3 @@ def upload_to_queue(result_df: pd.DataFrame, orchestrator_connection: Orchestrat
 
     except (ValueError, TypeError) as e:
         print(f"Error occurred: {e}")
-
-
-if __name__ == "__main__":
-    json_args = '{"path": "C:\\\\Users\\\\az77879\\\\Desktop\\\\Koerselsgodtgoerelse", "naeste_agent": "AZ53501"}'
-    oc = OrchestratorConnection("befordring - uploader - test", os.getenv('OpenOrchestratorConnStringTest'), os.getenv('OpenOrchestratorKeyTest'), json_args)
-    process(oc)
