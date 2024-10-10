@@ -48,8 +48,10 @@ def clear_queue(orchestrator_connection: OrchestratorConnection) -> None:
 
 def delete_all_files_in_path(path):
     """Delete all files and directories in the given path."""
-    if not os.path.isdir(path):
-        raise ValueError(f"The provided path '{path}' is not a valid directory.")
+    # Check if the path exists and create it if it doesn't
+    if not os.path.exists(path):
+        print(f"Directory does not exist. Creating: {path}")
+        os.makedirs(path)
 
     for filename in os.listdir(path):
         file_path = os.path.join(path, filename)
