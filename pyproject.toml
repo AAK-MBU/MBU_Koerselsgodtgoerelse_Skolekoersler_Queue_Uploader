@@ -18,7 +18,7 @@ classifiers = [
 dependencies = [
     "OpenOrchestrator == 1.*",
     "Pillow == 9.5.0",
-    "mbu_dev_shared_components == 0.0.49",
+    "mbu_dev_shared_components == 0.0.57",
     "pandas",
     "office365-rest-python-client"
 ]
@@ -27,7 +27,7 @@ dependencies = [
 dev = [
   "pylint",
   "flake8",
-  "mbu_dev_shared_components == 0.0.49",
+  "mbu_dev_shared_components == 0.0.57",
   "office365-rest-python-client",
   "pandas"
 ]
