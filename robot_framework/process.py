@@ -213,7 +213,7 @@ def determine_psp_value(skoleliste: str, row: pd.Series) -> str:
     if 'stensagerskolen' in skoleliste:
         return "XG-5240220808-00005"
     if not pd.isnull(row['skriv_dit_barns_skole_eller_dagtilbud']):
-        return "XG-5240220835-00004"
+        return "XG-5240220808-00006"
     return "XG-5240220808-00003"
 
 
