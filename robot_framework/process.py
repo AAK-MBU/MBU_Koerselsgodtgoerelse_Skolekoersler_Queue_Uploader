@@ -210,15 +210,15 @@ def determine_psp_value(skoleliste: str, row: pd.Series) -> str:
     """Determine PSP value based on school list."""
 
     if (
-        'langagerskolen' in skoleliste or 
-        '751090#1830' in skoleliste or 
+        'langagerskolen' in skoleliste or
+        '751090#1830' in skoleliste or
         '751090#2471' in skoleliste
     ):
         return "XG-5240220808-00004"
 
     if (
-        'stensagerskolen' in skoleliste or 
-        '751903#591' in skoleliste or 
+        'stensagerskolen' in skoleliste or
+        '751903#591' in skoleliste or
         '751903#2521' in skoleliste
     ):
         return "XG-5240220808-00005"
