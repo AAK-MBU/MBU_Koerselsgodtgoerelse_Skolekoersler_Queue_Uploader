@@ -167,6 +167,7 @@ def process_data(df: pd.DataFrame, naeste_agent: str, filename) -> pd.DataFrame:
         attachments_str = str(row.get('attachments', ''))
         url = extract_url_from_attachments(attachments_str)
         skoleliste = str(row['skoleliste']).lower() if not pd.isnull(row['skoleliste']) else ''
+        barnets_navn = str(row['barnets_navn'])
 
         psp_value = determine_psp_value(skoleliste, row)
 
@@ -186,6 +187,7 @@ def process_data(df: pd.DataFrame, naeste_agent: str, filename) -> pd.DataFrame:
         new_row = {
             'filename': filename,
             'cpr_encrypted': encrypted_cpr,
+            'barnets_navn': barnets_navn,
             'beloeb': beloeb_value,
             'reference': month_year,
             'arts_konto': '40430002',
@@ -256,3 +258,13 @@ def upload_to_queue(result_df: pd.DataFrame, orchestrator_connection: Orchestrat
 
     except (ValueError, TypeError) as e:
         print(f"Error occurred: {e}")
+
+if __name__ == '__main__':
+    import os
+    orchestrator_connection = OrchestratorConnection(
+        process_name="test.egenbefordring.upload",
+        connection_string=os.getenv("OpenOrchestratorConnStringTest"),
+        crypto_key=os.getenv("OpenOrchestratorKeyTest"),
+        process_arguments='{"path": "C:/tmp/Koerselsgodtgoerelse",  "naeste_agent": "AZ57364"}',
+    )
+    process(orchestrator_connection)
