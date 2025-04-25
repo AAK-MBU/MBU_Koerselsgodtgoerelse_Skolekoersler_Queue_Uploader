@@ -4,3 +4,4 @@ updates:
     directory: "/" # Adjust if projects.toml is in a subdirectory
     schedule:
       interval: "daily"
+    versioning-strategy: increase
