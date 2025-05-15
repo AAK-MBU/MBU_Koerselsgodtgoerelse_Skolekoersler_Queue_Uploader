@@ -30,7 +30,6 @@ def process(orchestrator_connection: OrchestratorConnection) -> None:
     username = service_konto_credential.username
     password = service_konto_credential.password
 
-    clear_queue(orchestrator_connection)
     delete_all_files_in_path(path_arg)
     filename = fetch_files(username, password, path_arg)
     data_df = load_excel_data(path_arg, filename)
