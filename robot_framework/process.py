@@ -13,6 +13,7 @@ from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.files.file import File
 from mbu_dev_shared_components.utils.fernet_encryptor import Encryptor
 from OpenOrchestrator.orchestrator_connection.connection import OrchestratorConnection
+from robot_framework import config
 
 # Configuration
 SHAREPOINT_SITE_URL = "https://aarhuskommune.sharepoint.com/teams/MBU-RPA-Egenbefordring"
@@ -245,7 +246,7 @@ def upload_to_queue(result_df: pd.DataFrame, orchestrator_connection: Orchestrat
     try:
         print("Uploading data to queue...")
         orchestrator_connection.bulk_create_queue_elements(
-            "Koerselsgodtgoerelse_egenbefordring",
+            config.QUEUE_NAME,
             references=unique_references,
             data=queue_data
         )
