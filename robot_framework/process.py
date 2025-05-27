@@ -199,6 +199,7 @@ def process_data(df: pd.DataFrame, naeste_agent: str, filename) -> pd.DataFrame:
             'godkendt_af': row.get('godkendt_af', pd.NA),
             'skole': row['skriv_dit_barns_skole_eller_dagtilbud'] if not pd.isnull(row['skriv_dit_barns_skole_eller_dagtilbud']) else row['skoleliste'],
             'is_godkendt': 'x' in str(row.get('godkendt', '')).lower(),
+            'evt_kommentar': row.get('evt_kommentar'),
         }
 
         processed_data.append(new_row)
