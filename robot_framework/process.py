@@ -240,7 +240,7 @@ def make_unique_references(references: list) -> list:
 
 def upload_to_queue(result_df: pd.DataFrame, orchestrator_connection: OrchestratorConnection) -> None:
     """Upload the processed data to the orchestrator queue."""
-    queue_data = [json.dumps(data, ensure_ascii=False) for data in result_df.to_dict(orient='records')]
+    queue_data = [json.dumps(data, ensure_ascii=False, default=str) for data in result_df.to_dict(orient='records')]
     queue_references = [str(row['posteringstekst']) for _, row in result_df.iterrows()]
     unique_references = make_unique_references(queue_references)
 
